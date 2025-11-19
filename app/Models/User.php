@@ -50,7 +50,7 @@ class User extends Authenticatable
 
     public function admin()
     {
-        return $this->belongsTo(Admin::class);
+        return $this->belongsTo(Admin::class, 'user_id');
     }
 
     public function role()
@@ -61,5 +61,9 @@ class User extends Authenticatable
     public function userDetail()
     {
         return $this->hasOne(UserDetail::class, 'user_id');
+    }
+
+    public function peminjaman() {
+        return $this->hasMany(Peminjaman::class, 'user_id');
     }
 }

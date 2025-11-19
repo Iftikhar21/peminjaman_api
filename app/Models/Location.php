@@ -15,4 +15,8 @@ class Location extends Model
     public function userDetail() {
         return $this->hasMany(UserDetail::class);
     }
+
+    public function peminjaman() {
+        return $this->hasMany(Peminjaman::class);
+    }
 }

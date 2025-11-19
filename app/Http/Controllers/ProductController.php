@@ -8,7 +8,7 @@ use Illuminate\Http\Request;
 class ProductController extends Controller
 {
     public function index() {
-        $product = Product::with('categories')->get();
+        $product = Product::with('category')->get();
         return response()->json([
             'message' => 'Data Product berhasil diambil !',
             'data' => $product
@@ -16,7 +16,7 @@ class ProductController extends Controller
     }
 
     public function show($id) {
-        $product = Product::with('categories')->find($id);
+        $product = Product::with('categor')->find($id);
         return response()->json([
             'message' => 'Data Product berhasil diambil !',
             'data' => $product

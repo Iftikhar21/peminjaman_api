@@ -15,9 +15,15 @@ class AuthController extends Controller
     {
         $validated = $request->validate([
             'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
+            'email' => 'required|string|email|max:255',
             'password' => 'required|string|min:6',
         ]);
+
+        if (User::where('email', $validated['email'])->exists()) {
+            return response()->json([
+                'message' => 'Email sudah terdaftar di database'
+            ], 400);
+        }
 
         $role = Role::where('role_name', 'user')->first();
 
@@ -49,13 +55,19 @@ class AuthController extends Controller
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'email' => ['Email atau password salah.'],
-            ]);
+        if (! $user) {
+            return response()->json([
+                'message' => 'Email tidak terdaftar.'
+            ], 404);
         }
 
-        $user->tokens()->delete();
+        if (! Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'message' => 'Password salah.'
+            ], 401);
+        }
+
+        // $user->tokens()->delete();
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
@@ -99,7 +111,13 @@ class AuthController extends Controller
             'password' => 'required|string|min:6',
             'role_id' => 'required|exists:role,id', // pastikan role ID valid
         ]);
-    
+
+        if (User::where('email', $validated['email'])->exists()) {
+            return response()->json([
+                'message' => 'Email sudah terdaftar di database'
+            ], 400);
+        }
+
         // Buat user baru sesuai role_id yang dikirim admin
         $user = User::create([
             'name' => $validated['name'],
@@ -126,6 +144,12 @@ class AuthController extends Controller
             'password' => 'sometimes|string|min:6',
             'role_id' => 'sometimes|exists:role,id',
         ]);
+
+        if (User::where('email', $validated['email'])->exists()) {
+            return response()->json([
+                'message' => 'Email sudah terdaftar di database'
+            ], 400);
+        }
 
         if (isset($validated['password'])) {
             $validated['password'] = bcrypt($validated['password']);

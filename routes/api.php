@@ -1,10 +1,12 @@
 <?php
 
+use App\Http\Controllers\AdminController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CategoriesController;
 use App\Http\Controllers\ClassBorrowerController;
 use App\Http\Controllers\LocationController;
 use App\Http\Controllers\MajorController;
+use App\Http\Controllers\PeminjamanController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\RoleController;
 use App\Http\Controllers\StatusBorrowerController;
@@ -16,6 +18,15 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->group(function () {
 
+    Route::middleware('auth:sanctum')->prefix('peminjaman')->group(function () {
+        Route::get('/me', [PeminjamanController::class, 'myPeminjaman']); // history user
+        Route::get('/active', [PeminjamanController::class, 'activePeminjaman']); // semua peminjaman aktif
+        Route::post('/create', [PeminjamanController::class, 'store']); // buat peminjaman baru
+        Route::post('/{id}/return', [PeminjamanController::class, 'return']); // kembalikan produk
+        Route::post('/check-pin', [PeminjamanController::class, 'checkPin']); // cek PIN override
+    });
+
+
     Route::middleware('role:user')->group(function () {
         Route::prefix('/me')->group(function () {
             Route::get('/', [UserDetailController::class, 'show']);
@@ -24,6 +35,11 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:admin')->group(function () {
+
+        Route::prefix('/admin')->group(function () {
+            Route::get('/', [AdminController::class, 'show']);
+            Route::put('/update', [AdminController::class, 'update']);
+        });
         
         Route::prefix('/user')->group(function () {
             Route::get('/', [AuthController::class, 'index']);

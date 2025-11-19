@@ -14,10 +14,12 @@ return new class extends Migration
         Schema::create('peminjaman', function (Blueprint $table) {
             $table->id();
             $table->foreignId("user_id")->constrained("users")->cascadeOnDelete()->cascadeOnUpdate();
-            $table->integer("product_id")->constrained("products")->cascadeOnDelete()->cascadeOnUpdate();
-            $table->integer("location_id")->constrained("location")->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreignId("product_id")->constrained("products")->cascadeOnDelete()->cascadeOnUpdate();
+            $table->foreignId("location_id")->constrained("location")->cascadeOnDelete()->cascadeOnUpdate();
             $table->date("start_date");
             $table->date("end_date");
+            $table->string('pin_code');
+            $table->text("note")->nullable();
             $table->enum("status", ["dipinjam", "dikembalikan"])->default("dipinjam");
             $table->integer("qty");
             $table->timestamps();

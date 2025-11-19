@@ -2,13 +2,13 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Categories;
+use App\Models\Category;
 use Illuminate\Http\Request;
 
 class CategoriesController extends Controller
 {
     public function index() {
-        $categories = Categories::all();
+        $categories = Category::all();
         return response()->json([
             'message' => 'Data Categories berhasil diambil !',
             'data' => $categories
@@ -16,7 +16,7 @@ class CategoriesController extends Controller
     }
 
     public function show($id) {
-        $categories = Categories::find($id);
+        $categories = Category::find($id);
         return response()->json([
             'message' => 'Data Categories berhasil diambil !',
             'data' => $categories
@@ -29,7 +29,7 @@ class CategoriesController extends Controller
             'category_name' => 'required|string|max:255',
         ]);
 
-        $categories = Categories::create($validated);
+        $categories = Category::create($validated);
         return response()->json([
             'message' => 'Data Categories berhasil disimpan !',
             'data' => $categories
@@ -37,7 +37,7 @@ class CategoriesController extends Controller
     }
 
     public function update(Request $request, $id) {
-        $categories = Categories::find($id);
+        $categories = Category::find($id);
 
         $validated = $request->validate([
             'category_name' => 'required|string|max:255',
@@ -51,7 +51,7 @@ class CategoriesController extends Controller
     }
 
     public function destroy($id) {
-        $categories = Categories::find($id);
+        $categories = Category::find($id);
         $categories->delete();
         return response()->json([
             'message' => 'Data Categories berhasil dihapus !'
