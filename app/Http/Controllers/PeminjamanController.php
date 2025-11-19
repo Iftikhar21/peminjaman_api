@@ -27,7 +27,7 @@ class PeminjamanController extends Controller
     }
 
     /**
-     * Semua peminjaman aktif (status = dipinjam) untuk admin/global
+     * Semua peminjaman aktif (status = dipinjam)
      */
     public function activePeminjaman()
     {
@@ -48,29 +48,36 @@ class PeminjamanController extends Controller
     public function store(Request $request)
     {
         $validated = $request->validate([
-            'product_id'   => 'required|exists:products,id',
-            'location_id'  => 'required|exists:location,id',
-            'start_date'   => 'required|date',
-            'end_date'     => 'required|date|after_or_equal:start_date',
-            'pin_code'     => 'required|string',
-            'note'         => 'nullable|string',
-            'qty'          => 'required|integer|min:1',
-            'override_pin' => 'nullable|string', // opsional, untuk pinjam dari user lain
+            'product_id'  => 'required|exists:products,id',
+            'location_id' => 'required|exists:location,id',
+            'start_date'  => 'required|date',
+            'end_date'    => 'required|date|after_or_equal:start_date',
+            'pin_code'    => 'required|string',
+            'note'        => 'nullable|string',
+            'qty'         => 'required|integer|min:1',
+
+            // override
+            'id_pinjam'    => 'nullable|exists:peminjaman,id',
+            'override_pin' => 'nullable|string',
         ]);
 
         $product = Product::findOrFail($request->product_id);
 
-        // Hitung total yang sedang dipinjam dari aset
+        /**
+         * Hitung stok tersedia dari aset
+         */
         $totalDipinjam = Peminjaman::where('product_id', $product->id)
             ->where('status', 'dipinjam')
             ->sum('qty');
 
         $stokTersedia = $product->qty - $totalDipinjam;
 
-        // Kalau stok masih cukup → pinjam dari aset
-        if ($request->qty <= $stokTersedia) {
-            $product->qty -= $request->qty; // kurangi stok
-            $product->save();
+        /**
+         * ======================================================
+         * 1. PINJAM DARI ASET (stok cukup & tanpa id_pinjam)
+         * ======================================================
+         */
+        if (!$request->id_pinjam && $request->qty <= $stokTersedia) {
 
             $peminjaman = Peminjaman::create([
                 'user_id'     => $request->user()->id,
@@ -84,38 +91,48 @@ class PeminjamanController extends Controller
                 'status'      => 'dipinjam',
             ]);
 
-            return response()->json([
-                'message' => 'Peminjaman berhasil dari aset',
-                'data' => $peminjaman
-            ]);
-        }
-
-        // Kalau stok habis → cek override PIN
-        if ($request->has('override_pin')) {
-            $peminjamanAktif = Peminjaman::where('product_id', $product->id)
-                ->where('status', 'dipinjam')
-                ->where('pin_code', $request->override_pin)
-                ->first();
-
-            if (!$peminjamanAktif) {
-                return response()->json([
-                    'message' => "Stok habis dan PIN override salah. Stok tersisa: $stokTersedia"
-                ], 400);
-            }
-
-            // Otomatis kembalikan peminjam sebelumnya
-            $peminjamanAktif->status = 'dikembalikan';
-            $peminjamanAktif->save();
-
-            // Kembalikan stok peminjam sebelumnya ke aset
-            $product->qty += $peminjamanAktif->qty;
-            $product->save();
-
-            // Kurangi stok sesuai qty user baru
+            // KURANGI stok aset
             $product->qty -= $request->qty;
             $product->save();
 
-            $peminjaman = Peminjaman::create([
+            return response()->json([
+                'message' => 'Peminjaman berhasil dari aset',
+                'data'    => $peminjaman
+            ]);
+        }
+
+        /**
+         * ======================================================
+         * 2. PINJAM DARI USER LAIN (override)
+         * requires: id_pinjam + override_pin
+         * ======================================================
+         */
+        if ($request->id_pinjam && $request->override_pin) {
+
+            $old = Peminjaman::where('id', $request->id_pinjam)
+                ->where('product_id', $product->id)
+                ->where('status', 'dipinjam')
+                ->first();
+
+            if (!$old) {
+                return response()->json([
+                    'message' => 'ID peminjaman tidak valid atau barang sudah dikembalikan.'
+                ], 400);
+            }
+
+            // cek PIN
+            if ($old->pin_code !== $request->override_pin) {
+                return response()->json([
+                    'message' => 'PIN override salah.'
+                ], 400);
+            }
+
+            // kembalikan pinjaman lama
+            $old->status = 'dikembalikan';
+            $old->save();
+
+            // buat pinjaman baru (stok TIDAK berubah!)
+            $new = Peminjaman::create([
                 'user_id'     => $request->user()->id,
                 'product_id'  => $product->id,
                 'location_id' => $request->location_id,
@@ -128,14 +145,18 @@ class PeminjamanController extends Controller
             ]);
 
             return response()->json([
-                'message' => 'Peminjaman berhasil menggunakan override PIN, peminjam sebelumnya otomatis dikembalikan',
-                'data' => $peminjaman
+                'message' => 'Peminjaman berhasil dari user lain (override PIN)',
+                'data'    => $new
             ]);
         }
 
-        // Kalau stok habis dan tidak ada override PIN
+        /**
+         * ======================================================
+         * 3. Stok habis & tidak ada override
+         * ======================================================
+         */
         return response()->json([
-            'message' => "Stok tidak cukup. Stok tersisa: $stokTersedia"
+            'message' => "Stok habis. Gunakan id_pinjam + override_pin untuk meminjam dari user lain."
         ], 400);
     }
 
@@ -146,6 +167,7 @@ class PeminjamanController extends Controller
     {
         $peminjaman = Peminjaman::findOrFail($id);
 
+        // hanya peminjam asli atau yang tahu PIN yg boleh return
         if (
             $request->user()->id !== $peminjaman->user_id &&
             $request->pin_code !== $peminjaman->pin_code
@@ -153,10 +175,11 @@ class PeminjamanController extends Controller
             return response()->json(['message' => 'Akses ditolak'], 403);
         }
 
+        // ubah status
         $peminjaman->status = 'dikembalikan';
         $peminjaman->save();
 
-        // Tambahkan stok kembali ke produk
+        // TAMBAH stok aset kembali
         $product = Product::find($peminjaman->product_id);
         $product->qty += $peminjaman->qty;
         $product->save();
@@ -165,25 +188,5 @@ class PeminjamanController extends Controller
             'message' => 'Produk berhasil dikembalikan',
             'data' => $peminjaman
         ]);
-    }
-
-    /**
-     * Cek PIN untuk override stok 0
-     */
-    public function checkPin(Request $request)
-    {
-        $request->validate([
-            'product_id' => 'required|exists:products,id',
-            'pin_code'   => 'required|string',
-        ]);
-
-        $peminjamanAktif = Peminjaman::where('product_id', $request->product_id)
-            ->where('status', 'dipinjam')
-            ->where('pin_code', $request->pin_code)
-            ->first();
-
-        return $peminjamanAktif
-            ? response()->json(['message' => 'PIN valid', 'can_override' => true])
-            : response()->json(['message' => 'PIN salah', 'can_override' => false], 400);
     }
 }
