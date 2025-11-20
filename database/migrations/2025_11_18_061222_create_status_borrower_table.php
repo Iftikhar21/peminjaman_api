@@ -13,7 +13,7 @@ return new class extends Migration
     {
         Schema::create('status_borrower', function (Blueprint $table) {
             $table->id();
-            $table->enum("status_name", ['siswa', 'guru']);
+            $table->string("status_name");
             $table->timestamps();
         });
     }

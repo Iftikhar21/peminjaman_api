@@ -18,7 +18,7 @@ Route::post('/login', [AuthController::class, 'login']);
 Route::post('/logout', [AuthController::class, 'logout']);
 Route::middleware('auth:sanctum')->group(function () {
 
-    Route::middleware('auth:sanctum')->prefix('peminjaman')->group(function () {
+    Route::prefix('peminjaman')->group(function () {
         Route::get('/me', [PeminjamanController::class, 'myPeminjaman']); // history user
         Route::get('/active', [PeminjamanController::class, 'activePeminjaman']); // semua peminjaman aktif
         Route::post('/create', [PeminjamanController::class, 'store']); // buat peminjaman baru
@@ -35,6 +35,12 @@ Route::middleware('auth:sanctum')->group(function () {
     });
 
     Route::middleware('role:admin')->group(function () {
+
+        Route::prefix('peminjaman')->group(function () {
+            Route::get('/all', [PeminjamanController::class, 'allPeminjaman']); // get all peminjaman
+            Route::get('/export', [PeminjamanController::class, 'exportExcel']); // export Excel
+        });
+
 
         Route::prefix('/admin')->group(function () {
             Route::get('/', [AdminController::class, 'show']);

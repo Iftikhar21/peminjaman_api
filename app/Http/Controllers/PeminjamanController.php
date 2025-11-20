@@ -2,12 +2,56 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\PeminjamanExport;
+use Maatwebsite\Excel\Facades\Excel;
 use App\Models\Peminjaman;
 use App\Models\Product;
 use Illuminate\Http\Request;
 
 class PeminjamanController extends Controller
 {
+    public function allPeminjaman(Request $request)
+    {
+        $query = Peminjaman::with('product', 'user', 'location');
+
+        // Filter: search (product name, user name)
+        if ($request->filled('search')) {
+            $search = $request->search;
+            $query->whereHas('product', fn($q) => $q->where('product_name', 'like', "%$search%"))
+                ->orWhereHas('user', fn($q) => $q->where('name', 'like', "%$search%"));
+        }
+
+        // Filter: product_id
+        if ($request->filled('product_id')) {
+            $query->where('product_id', $request->product_id);
+        }
+
+        // Filter: location_id
+        if ($request->filled('location_id')) {
+            $query->where('location_id', $request->location_id);
+        }
+
+        // Filter: status
+        if ($request->filled('status')) {
+            $query->where('status', $request->status);
+        }
+
+        // Filter: tanggal (start_date / end_date)
+        if ($request->filled('start_date')) {
+            $query->whereDate('start_date', '>=', $request->start_date);
+        }
+        if ($request->filled('end_date')) {
+            $query->whereDate('end_date', '<=', $request->end_date);
+        }
+
+        $peminjaman = $query->orderBy('start_date', 'desc')->get();
+
+        return response()->json([
+            'message' => 'Daftar semua peminjaman',
+            'data' => $peminjaman
+        ]);
+    }
+
     /**
      * History peminjaman user login
      */

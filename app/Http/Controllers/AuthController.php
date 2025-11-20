@@ -109,7 +109,7 @@ class AuthController extends Controller
             'name' => 'required|string|max:255',
             'email' => 'required|string|email|max:255|unique:users',
             'password' => 'required|string|min:6',
-            'role_id' => 'required|exists:role,id', // pastikan role ID valid
+            'role_id' => 'required|exists:roles,id', // role dipilih
         ]);
 
         if (User::where('email', $validated['email'])->exists()) {
@@ -118,16 +118,15 @@ class AuthController extends Controller
             ], 400);
         }
 
-        // Buat user baru sesuai role_id yang dikirim admin
         $user = User::create([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'password' => bcrypt($validated['password']),
             'role_id' => $validated['role_id'],
         ]);
-    
+
         $user->load('role');
-    
+
         return response()->json([
             'message' => 'User berhasil dibuat!',
             'user' => $user
@@ -142,10 +141,10 @@ class AuthController extends Controller
             'name' => 'sometimes|string|max:255',
             'email' => 'sometimes|string|email|max:255|unique:users,email,' . $id,
             'password' => 'sometimes|string|min:6',
-            'role_id' => 'sometimes|exists:role,id',
+            'role_id' => 'sometimes|exists:roles,id',
         ]);
 
-        if (User::where('email', $validated['email'])->exists()) {
+        if (isset($validated['email']) && User::where('email', $validated['email'])->where('id', '!=', $id)->exists()) {
             return response()->json([
                 'message' => 'Email sudah terdaftar di database'
             ], 400);
@@ -156,6 +155,7 @@ class AuthController extends Controller
         }
 
         $user->update($validated);
+        $user->load('role');
 
         return response()->json([
             'message' => 'User berhasil diupdate!',
